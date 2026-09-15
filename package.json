@@ -1,0 +1,41 @@
+{
+  "name": "kiro-loja-catalogo",
+  "version": "0.1.0",
+  "description": "Serviço de catálogo de e-books — Kiro Loja",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest --run",
+    "migration:create": "node --loader tsx scripts/migration-create.ts",
+    "migration:run": "node --loader tsx scripts/migration-run.ts"
+  },
+  "keywords": [
+    "kiro-loja",
+    "catalogo",
+    "e-book",
+    "api"
+  ],
+  "author": "Kiro Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1",
+    "pg": "^8.11.3",
+    "redis": "^4.7.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.5",
+    "@types/pg": "^8.11.6",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
+    "eslint": "^8.56.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.1"
+  }
+}

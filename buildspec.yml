@@ -1,0 +1,63 @@
+version: 0.2
+
+# Buildspec para CodeBuild — pipeline de app do kiro-loja-catalogo
+# Duas fases: (1) build Docker + push ECR, (2) migration no Aurora (in-VPC)
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: us-east-2
+    AWS_ACCOUNT_ID: !Sub "${AWS::AccountId}"
+    PROJECT_NAME: kiro-loja
+    SERVICE_NAME: catalogo
+  parameter-store:
+    AURORA_PASSWORD: !Sub "/${PROJECT_NAME}/${SERVICE_NAME}/aurora-password"
+
+phases:
+  pre_build:
+    commands:
+      - echo "🔍 Pre-build — validação e setup"
+      - echo $AWS_ACCOUNT_ID | grep -E '^[0-9]{12}$' || (echo "AWS_ACCOUNT_ID inválido" && exit 1)
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - ECR_REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$PROJECT_NAME-$SERVICE_NAME
+      - IMAGE_TAG=$CODEBUILD_RESOLVED_SOURCE_VERSION
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+      - REPOSITORY_NAME=$PROJECT_NAME-$SERVICE_NAME
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPOSITORY_NAME
+
+  build:
+    commands:
+      - echo "🏗️  Build — docker build e push ECR"
+      - echo "Build iniciado em $(date)"
+      - docker build
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          --build-arg VCS_REF=$CODEBUILD_RESOLVED_SOURCE_VERSION
+          --build-arg VERSION=$IMAGE_TAG
+          -t $REPOSITORY_URI:$IMAGE_TAG
+          -t $REPOSITORY_URI:latest
+          .
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:latest
+      - echo "Escrevendo imagedefinitions.json..."
+      - printf '[{"name":"'$SERVICE_NAME'","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - cat imagedefinitions.json
+
+  post_build:
+    commands:
+      - echo "✓ Build concluído em $(date)"
+
+artifacts:
+  files:
+    - imagedefinitions.json
+  name: BuildArtifact
+
+cache:
+  paths:
+    - '/root/.npm/**/*'
+    - '/root/.docker/**/*'
+
+# Log configuration
+logs:
+  cloudwatch:
+    group-name: !Sub "/aws/codebuild/${PROJECT_NAME}-${SERVICE_NAME}"
+    stream-name: build-log

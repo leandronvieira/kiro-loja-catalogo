@@ -1,0 +1,58 @@
+name: Validar e Deploy — Catálogo
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "package.json"
+      - "tsconfig.json"
+      - ".github/workflows/validar-e-deploy.yml"
+
+jobs:
+  validate-and-test:
+    name: Validar e testar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes
+        run: npm run test
+
+  # Deploy só roda na main (após merge)
+  deploy:
+    name: Deploy para produção
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: validate-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger CodePipeline
+        # Gatilha o pipeline no CodePipeline (requer AWS credentials via OIDC)
+        env:
+          AWS_REGION: us-east-2
+          PIPELINE_NAME: kiro-loja-catalogo-pipeline
+        run: |
+          echo "Pipeline será acionado pelo Git Sync (CloudFormation)"
+          echo "Stack: kiro-loja-catalogo-stack"
+          echo "Commit: ${{ github.sha }}"
