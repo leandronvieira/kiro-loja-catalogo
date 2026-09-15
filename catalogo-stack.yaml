@@ -17,6 +17,73 @@ Parameters:
 
 Resources:
   # ===========================================================================
+  # KMS — Chaves para encriptação
+  # ===========================================================================
+  EcrKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for ECR repository encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow ECR to use the key
+            Effect: Allow
+            Principal:
+              Service: ecr.amazonaws.com
+            Action:
+              - "kms:Decrypt"
+              - "kms:GenerateDataKey"
+            Resource: "*"
+
+  EcrKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-ecr"
+      TargetKeyId: !Ref EcrKmsKey
+
+  LogsKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for CloudWatch Logs encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow CloudWatch Logs to use the key
+            Effect: Allow
+            Principal:
+              Service: !Sub "logs.${AWS::Region}.amazonaws.com"
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:CreateGrant"
+              - "kms:DescribeKey"
+            Resource: "*"
+            Condition:
+              ArnLike:
+                "kms:EncryptionContext:aws:logs:arn": !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  LogsKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-logs"
+      TargetKeyId: !Ref LogsKmsKey
+  # ===========================================================================
   # ECR — Repositório de imagens Docker
   # ===========================================================================
   CatalogoRepository:
@@ -26,6 +93,9 @@ Resources:
       ImageScanningConfiguration:
         ScanOnPush: true
       ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: KMS
+        KmsKey: !GetAtt EcrKmsKey.Arn
       Tags:
         - Key: Project
           Value: !Ref ProjectName
@@ -88,6 +158,7 @@ Resources:
     Properties:
       LogGroupName: !Sub "/ecs/${ProjectName}-catalogo"
       RetentionInDays: 7
+      KmsKeyId: !GetAtt LogsKmsKey.Arn
 
   # ===========================================================================
   # ECS — Task Definition
@@ -117,24 +188,26 @@ Resources:
               Value: production
             - Name: PORT
               Value: "3000"
-            # Aurora
             - Name: AURORA_HOST
-              Value: !ImportValue !Sub "${ProjectName}-AuroraClusterEndpoint"
+              Value: !ImportValue
+                Fn::Sub: "${ProjectName}-AuroraClusterEndpoint"
             - Name: AURORA_PORT
-              Value: !ImportValue !Sub "${ProjectName}-AuroraPort"
+              Value: !ImportValue
+                Fn::Sub: "${ProjectName}-AuroraPort"
             - Name: AURORA_DATABASE
-              Value: !ImportValue !Sub "${ProjectName}-DatabaseName"
+              Value: !ImportValue
+                Fn::Sub: "${ProjectName}-DatabaseName"
             - Name: AURORA_USER
               Value: catalogo
-            # Valkey
             - Name: VALKEY_HOST
-              Value: !ImportValue !Sub "${ProjectName}-ValkeyEndpoint"
+              Value: !ImportValue
+                Fn::Sub: "${ProjectName}-ValkeyEndpoint"
             - Name: VALKEY_PORT
-              Value: !ImportValue !Sub "${ProjectName}-ValkeyPort"
+              Value: !ImportValue
+                Fn::Sub: "${ProjectName}-ValkeyPort"
           Secrets:
-            # Senha do Aurora injetada como secret (armazenada em Secrets Manager)
             - Name: AURORA_PASSWORD
-              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-catalogo-aurora-password:password::"
+              ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-catalogo-aurora-password:password:"
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -159,7 +232,8 @@ Resources:
     DependsOn: ListenerRule
     Properties:
       ServiceName: !Sub "${ProjectName}-catalogo"
-      Cluster: !ImportValue !Sub "${ProjectName}-EcsClusterName"
+      Cluster: !ImportValue
+        Fn::Sub: "${ProjectName}-EcsClusterName"
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 2
       LaunchType: FARGATE
@@ -168,10 +242,13 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
           Subnets:
-            - !ImportValue !Sub "${ProjectName}-PrivateSubnetA"
-            - !ImportValue !Sub "${ProjectName}-PrivateSubnetB"
+            - !ImportValue
+              Fn::Sub: "${ProjectName}-PrivateSubnetA"
+            - !ImportValue
+              Fn::Sub: "${ProjectName}-PrivateSubnetB"
           SecurityGroups:
-            - !ImportValue !Sub "${ProjectName}-EcsTasksSecurityGroupId"
+            - !ImportValue
+              Fn::Sub: "${ProjectName}-EcsTasksSecurityGroupId"
       LoadBalancers:
         - ContainerName: catalogo
           ContainerPort: 3000
@@ -197,7 +274,8 @@ Resources:
       Port: 3000
       Protocol: HTTP
       TargetType: ip
-      VpcId: !ImportValue !Sub "${ProjectName}-VpcId"
+      VpcId: !ImportValue
+        Fn::Sub: "${ProjectName}-VpcId"
       HealthCheckEnabled: true
       HealthCheckPath: /health
       HealthCheckProtocol: HTTP
@@ -224,7 +302,8 @@ Resources:
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
-      ListenerArn: !ImportValue !Sub "${ProjectName}-AlbListenerArn"
+      ListenerArn: !ImportValue
+        Fn::Sub: "${ProjectName}-AlbListenerArn"
       Priority: 100
       Conditions:
         - Field: path-pattern
