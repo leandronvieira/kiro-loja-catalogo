@@ -1,0 +1,45 @@
+# =============================================================================
+# Workflow: validar-catalogo
+# Repositório: kiro-loja-catalogo
+#
+# Objetivo: ser o portão de qualidade (gate) antes do merge na main.
+# Roda em todo Pull Request com destino à branch main e executa três checks.
+# =============================================================================
+
+name: validar-catalogo
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-infra:
+    name: Validar Infraestrutura
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install cfn-lint
+      - run: cfn-lint -t catalogo-stack.yaml --include-checks W
+      - run: pip install checkov
+      - run: |
+          checkov \
+            -f catalogo-stack.yaml \
+            --framework cloudformation \
+            --quiet \
+            --compact \
+            --skip-check CKV_AWS_109,CKV_AWS_111
+
+  validate-app:
+    name: Validar Aplicação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test
