@@ -27,8 +27,8 @@ redisClient.on("connect", () => {
   console.log("✓ Conectado ao Valkey");
 });
 
-// Conectar ao iniciar
-await redisClient.connect().catch((err) => {
+// Conectar ao iniciar (fire-and-forget)
+redisClient.connect().catch((err) => {
   console.warn("Aviso: Valkey não disponível no boot (cache desligado):", err);
 });
 
