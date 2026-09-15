@@ -17,6 +17,71 @@ Parameters:
 
 Resources:
   # ===========================================================================
+  # KMS — Chaves para encriptação
+  # ===========================================================================
+  EcrKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for ECR repository encryption
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow ECR to use the key
+            Effect: Allow
+            Principal:
+              Service: ecr.amazonaws.com
+            Action:
+              - "kms:Decrypt"
+              - "kms:GenerateDataKey"
+            Resource: "*"
+
+  EcrKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-ecr"
+      TargetKeyId: !Ref EcrKmsKey
+
+  LogsKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for CloudWatch Logs encryption
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: Allow CloudWatch Logs to use the key
+            Effect: Allow
+            Principal:
+              Service: !Sub "logs.${AWS::Region}.amazonaws.com"
+            Action:
+              - "kms:Encrypt"
+              - "kms:Decrypt"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:CreateGrant"
+              - "kms:DescribeKey"
+            Resource: "*"
+            Condition:
+              ArnLike:
+                "kms:EncryptionContext:aws:logs:arn": !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  LogsKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-logs"
+      TargetKeyId: !Ref LogsKmsKey
+  # ===========================================================================
   # ECR — Repositório de imagens Docker
   # ===========================================================================
   CatalogoRepository:
@@ -26,6 +91,9 @@ Resources:
       ImageScanningConfiguration:
         ScanOnPush: true
       ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: KMS
+        KmsKey: !GetAtt EcrKmsKey.Arn
       Tags:
         - Key: Project
           Value: !Ref ProjectName
@@ -88,6 +156,7 @@ Resources:
     Properties:
       LogGroupName: !Sub "/ecs/${ProjectName}-catalogo"
       RetentionInDays: 7
+      KmsKeyId: !GetAtt LogsKmsKey.Arn
 
   # ===========================================================================
   # ECS — Task Definition
