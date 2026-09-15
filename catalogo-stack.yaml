@@ -132,7 +132,6 @@ Resources:
             - Name: VALKEY_PORT
               Value: !ImportValue !Sub "${ProjectName}-ValkeyPort"
           Secrets:
-            # Senha do Aurora injetada como secret (armazenada em Secrets Manager)
             - Name: AURORA_PASSWORD
               ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-catalogo-aurora-password:password::"
           LogConfiguration:
