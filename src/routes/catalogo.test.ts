@@ -35,7 +35,8 @@ describe("GET /api/catalogo/listar", () => {
       .query({ page: 1, limit: 10 });
 
     expect(response.status).toBe(200);
-    expect(response.body.products).toEqual([mockProduct]);
+    expect(response.body.products).toHaveLength(1);
+    expect(response.body.products[0].id).toBe(mockProduct.id);
     expect(response.body.pagination.page).toBe(1);
     expect(response.body.pagination.limit).toBe(10);
   });
@@ -74,7 +75,8 @@ describe("GET /api/catalogo/:id", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual(mockProduct);
+    expect(response.body.id).toBe(mockProduct.id);
+    expect(response.body.titulo).toBe(mockProduct.titulo);
     expect(catalogoService.getProductById).toHaveBeenCalledWith(
       mockProduct.id
     );

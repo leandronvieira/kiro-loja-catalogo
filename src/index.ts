@@ -26,7 +26,7 @@ app.use(
     err: any,
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction
+    _next: express.NextFunction
   ) => {
     console.error("Erro:", err);
     res.status(500).json({

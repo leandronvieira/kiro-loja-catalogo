@@ -105,10 +105,9 @@ export async function invalidateProductCache(id: string): Promise<void> {
   try {
     await Promise.all([
       // Limpar cache do produto específico
-      getCache(`catalog:product:${id}`).then(async () => {
-        const cacheKey = `catalog:product:${id}`;
+      (async () => {
         // Delete (função não implementada acima; adicionar se precisar)
-      }),
+      })(),
       // Limpar cache da lista (todos os offsets)
       // Idealmente: pattern scan em `catalog:products:*` e delete (Redis 6.0+)
     ]);
