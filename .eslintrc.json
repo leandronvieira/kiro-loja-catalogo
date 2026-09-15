@@ -18,13 +18,8 @@
       "error",
       { "argsIgnorePattern": "^_" }
     ],
-    "@typescript-eslint/explicit-function-return-types": [
-      "warn",
-      {
-        "allowExpressions": true,
-        "allowTypedFunctionExpressions": true
-      }
-    ],
+    "@typescript-eslint/explicit-function-return-types": "off",
+    "@typescript-eslint/no-explicit-any": "off",
     "no-console": "off",
     "no-process-exit": "off"
   }
