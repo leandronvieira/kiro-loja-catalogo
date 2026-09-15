@@ -6,9 +6,9 @@ import { createClient } from "redis";
  * Conecta via variáveis de ambiente
  */
 const redisClient = createClient({
-  host: process.env.VALKEY_HOST || "localhost",
-  port: parseInt(process.env.VALKEY_PORT || "6379"),
   socket: {
+    host: process.env.VALKEY_HOST || "localhost",
+    port: parseInt(process.env.VALKEY_PORT || "6379"),
     reconnectStrategy: (retries) => {
       if (retries > 10) {
         console.error("Máximo de tentativas de reconexão ao Valkey atingido");
