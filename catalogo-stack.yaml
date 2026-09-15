@@ -119,18 +119,18 @@ Resources:
               Value: "3000"
             # Aurora
             - Name: AURORA_HOST
-              Value: !ImportValue !Sub "${ProjectName}-AuroraClusterEndpoint"
+              Value: !Sub "arn:aws:rds:${AWS::Region}:${AWS::AccountId}:cluster:${ProjectName}-aurora"
             - Name: AURORA_PORT
-              Value: !ImportValue !Sub "${ProjectName}-AuroraPort"
+              Value: "5432"
             - Name: AURORA_DATABASE
-              Value: !ImportValue !Sub "${ProjectName}-DatabaseName"
+              Value: "catalog"
             - Name: AURORA_USER
               Value: catalogo
             # Valkey
             - Name: VALKEY_HOST
-              Value: !ImportValue !Sub "${ProjectName}-ValkeyEndpoint"
+              Value: !Sub "arn:aws:elasticache:${AWS::Region}:${AWS::AccountId}:cluster:${ProjectName}-valkey"
             - Name: VALKEY_PORT
-              Value: !ImportValue !Sub "${ProjectName}-ValkeyPort"
+              Value: "6379"
           Secrets:
             - Name: AURORA_PASSWORD
               ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-catalogo-aurora-password:password:"
@@ -158,7 +158,7 @@ Resources:
     DependsOn: ListenerRule
     Properties:
       ServiceName: !Sub "${ProjectName}-catalogo"
-      Cluster: !ImportValue !Sub "${ProjectName}-EcsClusterName"
+      Cluster: !Sub "${ProjectName}-cluster"
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 2
       LaunchType: FARGATE
@@ -167,10 +167,10 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
           Subnets:
-            - !ImportValue !Sub "${ProjectName}-PrivateSubnetA"
-            - !ImportValue !Sub "${ProjectName}-PrivateSubnetB"
+            - !Sub "subnet-${ProjectName}-private-a"
+            - !Sub "subnet-${ProjectName}-private-b"
           SecurityGroups:
-            - !ImportValue !Sub "${ProjectName}-EcsTasksSecurityGroupId"
+            - !Sub "sg-${ProjectName}-ecs-tasks"
       LoadBalancers:
         - ContainerName: catalogo
           ContainerPort: 3000
@@ -196,7 +196,7 @@ Resources:
       Port: 3000
       Protocol: HTTP
       TargetType: ip
-      VpcId: !ImportValue !Sub "${ProjectName}-VpcId"
+      VpcId: !Sub "vpc-${ProjectName}"
       HealthCheckEnabled: true
       HealthCheckPath: /health
       HealthCheckProtocol: HTTP
@@ -223,7 +223,7 @@ Resources:
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
-      ListenerArn: !ImportValue !Sub "${ProjectName}-AlbListenerArn"
+      ListenerArn: !Sub "arn:aws:elasticloadbalancing:${AWS::Region}:${AWS::AccountId}:listener/app/${ProjectName}-alb/*"
       Priority: 100
       Conditions:
         - Field: path-pattern
